@@ -1,12 +1,20 @@
 GET|query-offer:
+  httpcode: 200
+  delay : 0
   header: req-response/hello-get-header.txt 
   body: req-response/hello-get-body.txt
 POST|token:
+  httpcode: 200
+  delay : 1
   header: req-response/token-post-header.txt 
   body: req-response/token-post-body.txt
 POST|query-status:
+  httpcode: 200
+  delay : 2
   header: req-response/query-status-post-header.txt 
   body: req-response/query-status-post-body.txt
 default|default:
+  httpcode: 200
+  delay : 2
   header: req-response/default-header.txt 
   body: req-response/default-body.txt

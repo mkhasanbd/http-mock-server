@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,8 +25,10 @@ var (
 )
 
 type HeaderAndBody struct {
-	Header string
-	Body   string
+	HttpCode int
+	Delay    int
+	Header   string
+	Body     string
 }
 
 func readConfiguration() bool {
@@ -42,7 +45,8 @@ func readConfiguration() bool {
 	err = yaml.Unmarshal(buf, reqRespMap)
 
 	if err != nil {
-		fmt.Printf("in file %q: %v", configFile, err)
+		fmt.Printf("Error occured while parsingin file %q: %v", configFile, err)
+		ErrorLogger.Printf("Error occured while parsingin file %q: %v", configFile, err)
 		return false
 	}
 
@@ -62,7 +66,7 @@ func initializeAndStartListening() {
 	WarningLogger = log.New(file, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
 	ErrorLogger = log.New(file, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
-	fmt.Printf("Reading Configuration from: '%v' ...\n", configFile)
+	fmt.Printf("Reading Configuration ...\n")
 	readConfiguration()
 
 	http.HandleFunc("/", defaultHandler)
@@ -72,6 +76,11 @@ func initializeAndStartListening() {
 
 func defaultHandler(w http.ResponseWriter, req *http.Request) {
 
+	var logBuff strings.Builder
+
+	fmt.Printf("Received request from ... %v\n", req.RemoteAddr)
+	fmt.Fprintf(&logBuff, "Received request from ... %v", req.RemoteAddr)
+
 	key := req.Method + "|" + strings.Trim(req.RequestURI, "/")
 	response := reqRespMap[key]
 
@@ -79,10 +88,14 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 		response = reqRespMap["default|default"]
 	}
 
-	// -- Write HTTP Response Code -- //
-	w.WriteHeader(http.StatusOK)
+	fmt.Printf("Sleeping for %v seconds ...", response.Delay)
+	InfoLogger.Printf("Sleeping for %v seconds ...", response.Delay)
+	time.Sleep(time.Duration(response.Delay) * time.Second)
 
 	// -- Process Response Header -- //
+
+	fmt.Printf("Writing Headers ... \n")
+	InfoLogger.Printf("Writing Headers ... \n")
 
 	responseText, err := ioutil.ReadFile(response.Header)
 
@@ -103,74 +116,67 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// -- Process Response Body -- //
+	// -- Write HTTP Response Code -- //
+	fmt.Printf("Writing status code ... \n")
+	InfoLogger.Printf("Writing status code ... \n")
+	w.WriteHeader(response.HttpCode)
 
+	// -- Process Response Body -- //
+	fmt.Printf("Writing response body ... \n")
 	responseText, err = ioutil.ReadFile(response.Body)
 
 	if err != nil {
 		fmt.Printf("Error occured while sending response body .. %v\n", err)
-		ErrorLogger.Printf("Error occured while sending response body .. \n%v", err)
+		ErrorLogger.Printf("Error occured while sending response body .. %v\n", err)
 	} else {
 		w.Write(responseText)
 	}
 
+	fmt.Printf("Dumping rquest data in output file ...\n")
 	//------- logging code ------//
 
+	fmt.Fprintf(&logBuff, "\n\n---- Incoming request trace ----\n\n")
+
+	fmt.Fprintf(&logBuff, "Request URL:: %v\n", req.RequestURI)
+	fmt.Fprintf(&logBuff, "HTTP Method:: %v\n", req.Method)
+
+	fmt.Fprintf(&logBuff, "\nHeader:: \n")
+
+	for name, headers := range req.Header {
+		for _, h := range headers {
+			fmt.Fprintf(&logBuff, "\t%v: %v\n", name, h)
+		}
+	}
+
+	req.ParseForm()
+
+	fmt.Fprintf(&logBuff, "\nrequest.Form::\n")
+
+	for key, value := range req.Form {
+		fmt.Fprintf(&logBuff, "\t%s : %s\n", key, value)
+	}
+
+	fmt.Fprintf(&logBuff, "\nrequest.PostForm::\n")
+	for key, value := range req.PostForm {
+		fmt.Fprintf(&logBuff, "\t%s : %s\n", key, value)
+	}
+
+	bodyStream, err := ioutil.ReadAll(req.Body)
+
+	if err == nil {
+		fmt.Fprintf(&logBuff, "\nrequest.Body::\n")
+		fmt.Fprintf(&logBuff, "\n%v\n", string(bodyStream))
+
+	} else {
+		fmt.Printf("Error occured while sending response body .. %v\n", err)
+		ErrorLogger.Printf("Error occured while sending response body .. \n%v", err)
+	}
+
+	fmt.Fprintf(&logBuff, "---------------End----------------\n")
+	InfoLogger.Println(logBuff.String())
+
 	if verboseFlag {
-
-		var buff strings.Builder
-
-		fmt.Println("---- Incoming request trace ---- ")
-		fmt.Fprintf(&buff, "\n---- Incoming request trace ----\n")
-
-		fmt.Printf("Request URL:: %v\n", req.RequestURI)
-		fmt.Printf("HTTP Method:: %v\n", req.Method)
-
-		fmt.Fprintf(&buff, "Request URL:: %v\n", req.RequestURI)
-		fmt.Fprintf(&buff, "HTTP Method:: %v\n", req.Method)
-
-		fmt.Println("\nHeader:: ")
-		fmt.Fprintf(&buff, "\nHeader:: \n")
-
-		for name, headers := range req.Header {
-			for _, h := range headers {
-				fmt.Printf("\t%v: %v\n", name, h)
-				fmt.Fprintf(&buff, "\t%v: %v\n", name, h)
-			}
-		}
-
-		req.ParseForm()
-
-		fmt.Println("\nrequest.Form::")
-		fmt.Fprintf(&buff, "\nrequest.Form::\n")
-
-		for key, value := range req.Form {
-			fmt.Printf("\t%s : %s\n", key, value)
-			fmt.Fprintf(&buff, "\t%s : %s\n", key, value)
-		}
-
-		fmt.Println("\nrequest.PostForm::")
-		for key, value := range req.PostForm {
-			fmt.Printf("\t%s : %s\n", key, value)
-			fmt.Fprintf(&buff, "\t%s : %s\n", key, value)
-		}
-
-		bodyStream, err := ioutil.ReadAll(req.Body)
-
-		if err == nil {
-			fmt.Println("\nrequest.Body::")
-			fmt.Printf("\n%v\n", string(bodyStream))
-
-			fmt.Fprintf(&buff, "\nrequest.Body::")
-			fmt.Fprintf(&buff, "\n%v\n", string(bodyStream))
-
-		} else {
-			fmt.Printf("Error occured while sending response body .. %v\n", err)
-			ErrorLogger.Printf("Error occured while sending response body .. \n%v", err)
-		}
-		fmt.Println("---------------End---------------- ")
-		fmt.Fprintf(&buff, "---------------End---------------- ")
-		InfoLogger.Println(buff.String())
+		fmt.Println(logBuff.String())
 	}
 }
 
@@ -207,8 +213,9 @@ func readArguments() bool {
 		ip = "localhost"
 	}
 
+	fmt.Printf("Reading command arguments ...\n")
 	if verboseFlag {
-		fmt.Printf("Supplied Arguments ... \nip :\t%v\nport :\t%v\nconfigFile :\t%v\nOoutputFile :\t%v\nverboseFlag :\t%v\n", ip, port, configFile, outputFile, verboseFlag)
+		fmt.Printf("ip\t\t: %v\nport\t\t:%v\nconfigFile\t:%v\nOoutputFile\t:%v\nverboseFlag\t:%v\n", ip, port, configFile, outputFile, verboseFlag)
 	}
 
 	return argsLength > 0
