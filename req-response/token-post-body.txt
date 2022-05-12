@@ -1,0 +1,7 @@
+{
+    "status": "approved",
+    "accessToken": "VNR2kZAjOkOBZCaAAgqyeiKP28Br",
+    "expiresIn": "3599",
+    "scope": "Read Write",
+    "tokenType": "BearerToken"
+}

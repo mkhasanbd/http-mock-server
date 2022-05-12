@@ -1,0 +1,12 @@
+GET|query-offer:
+  header: req-response/hello-get-header.txt 
+  body: req-response/hello-get-body.txt
+POST|token:
+  header: req-response/token-post-header.txt 
+  body: req-response/token-post-body.txt
+POST|query-status:
+  header: req-response/query-status-post-header.txt 
+  body: req-response/query-status-post-body.txt
+default|default:
+  header: req-response/default-header.txt 
+  body: req-response/default-body.txt
