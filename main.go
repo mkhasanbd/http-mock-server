@@ -55,22 +55,16 @@ func readConfiguration() bool {
 
 func initializeAndStartListening() {
 
-	// Initiate Logger
-	file, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	InfoLogger = log.New(file, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	WarningLogger = log.New(file, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-	ErrorLogger = log.New(file, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
-
 	fmt.Printf("Reading Configuration ...\n")
+	InfoLogger.Printf("Reading Configuration ...\n")
+
 	readConfiguration()
 
 	http.HandleFunc("/", defaultHandler)
-	fmt.Println("listing on " + ip + ":" + port + " ...\n")
+
+	fmt.Println("listing on " + ip + ":" + port + " ...")
+	InfoLogger.Println("listing on " + ip + ":" + port + " ...")
+
 	http.ListenAndServe(ip+":"+port, nil)
 }
 
@@ -79,7 +73,7 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 	var logBuff strings.Builder
 
 	fmt.Printf("Received request from ... %v\n", req.RemoteAddr)
-	fmt.Fprintf(&logBuff, "Received request from ... %v", req.RemoteAddr)
+	InfoLogger.Printf("Received request from ... %v\n", req.RemoteAddr)
 
 	key := req.Method + "|" + strings.Trim(req.RequestURI, "/")
 	response := reqRespMap[key]
@@ -88,8 +82,8 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 		response = reqRespMap["default|default"]
 	}
 
-	fmt.Printf("Sleeping for %v seconds ...", response.Delay)
-	InfoLogger.Printf("Sleeping for %v seconds ...", response.Delay)
+	fmt.Printf("Sleeping for %v seconds ...\n", response.Delay)
+	InfoLogger.Printf("Sleeping for %v seconds ...\n", response.Delay)
 	time.Sleep(time.Duration(response.Delay) * time.Second)
 
 	// -- Process Response Header -- //
@@ -112,7 +106,6 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 			_key := strings.Trim(keyValue[0], " ")
 			_value := strings.Trim(keyValue[1], " ")
 			w.Header().Add(_key, _value)
-			fmt.Printf("{key: %v value: %v}\n", _key, _value)
 		}
 	}
 
@@ -135,7 +128,7 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 	fmt.Printf("Dumping rquest data in output file ...\n")
 	//------- logging code ------//
 
-	fmt.Fprintf(&logBuff, "\n\n---- Incoming request trace ----\n\n")
+	fmt.Fprintf(&logBuff, "Request dump ..\n\n---- Incoming request trace ----\n\n")
 
 	fmt.Fprintf(&logBuff, "Request URL:: %v\n", req.RequestURI)
 	fmt.Fprintf(&logBuff, "HTTP Method:: %v\n", req.Method)
@@ -178,6 +171,9 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 	if verboseFlag {
 		fmt.Println(logBuff.String())
 	}
+
+	fmt.Printf("waiting for next request ...\n")
+	InfoLogger.Printf("waiting for next request ...\n")
 }
 
 func main() {
@@ -191,6 +187,8 @@ func main() {
 }
 
 func readArguments() bool {
+
+	fmt.Printf("Reading command arguments ...\n")
 
 	args := os.Args[1:]
 	argsLength := len(args)
@@ -213,9 +211,20 @@ func readArguments() bool {
 		ip = "localhost"
 	}
 
-	fmt.Printf("Reading command arguments ...\n")
+	// Initiate Logger
+	file, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	InfoLogger = log.New(file, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	WarningLogger = log.New(file, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLogger = log.New(file, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+
 	if verboseFlag {
-		fmt.Printf("ip\t\t: %v\nport\t\t:%v\nconfigFile\t:%v\nOoutputFile\t:%v\nverboseFlag\t:%v\n", ip, port, configFile, outputFile, verboseFlag)
+		fmt.Printf("ip\t\t:%v\nport\t\t:%v\nconfigFile\t:%v\nOoutputFile\t:%v\nverboseFlag\t:%v\n", ip, port, configFile, outputFile, verboseFlag)
+		InfoLogger.Printf("Command Arguments::\n\tip\t\t:%v\n\tport\t\t:%v\n\tconfigFile\t:%v\n\tOoutputFile\t:%v\n\tverboseFlag\t:%v\n", ip, port, configFile, outputFile, verboseFlag)
 	}
 
 	return argsLength > 0
