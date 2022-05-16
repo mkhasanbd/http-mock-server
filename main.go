@@ -75,56 +75,6 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 	fmt.Printf("Received request from ... %v\n", req.RemoteAddr)
 	InfoLogger.Printf("Received request from ... %v\n", req.RemoteAddr)
 
-	key := req.Method + "|" + strings.Trim(req.RequestURI, "/")
-	response := reqRespMap[key]
-
-	if response == (HeaderAndBody{}) {
-		response = reqRespMap["default|default"]
-	}
-
-	fmt.Printf("Sleeping for %v seconds ...\n", response.Delay)
-	InfoLogger.Printf("Sleeping for %v seconds ...\n", response.Delay)
-	time.Sleep(time.Duration(response.Delay) * time.Second)
-
-	// -- Process Response Header -- //
-
-	fmt.Printf("Writing Headers ... \n")
-	InfoLogger.Printf("Writing Headers ... \n")
-
-	responseText, err := ioutil.ReadFile(response.Header)
-
-	if err != nil {
-		fmt.Printf("Error occured while sending response header .. : %v\n", err)
-		ErrorLogger.Printf("Error occured while sending response header .. %v\n", err)
-	} else if strings.Trim(string(responseText), " ") != "" {
-
-		headers := strings.Split(string(responseText), "\n")
-
-		for _, line := range headers {
-
-			keyValue := strings.Split(line, ":")
-			_key := strings.Trim(keyValue[0], " ")
-			_value := strings.Trim(keyValue[1], " ")
-			w.Header().Add(_key, _value)
-		}
-	}
-
-	// -- Write HTTP Response Code -- //
-	fmt.Printf("Writing status code ... \n")
-	InfoLogger.Printf("Writing status code ... \n")
-	w.WriteHeader(response.HttpCode)
-
-	// -- Process Response Body -- //
-	fmt.Printf("Writing response body ... \n")
-	responseText, err = ioutil.ReadFile(response.Body)
-
-	if err != nil {
-		fmt.Printf("Error occured while sending response body .. %v\n", err)
-		ErrorLogger.Printf("Error occured while sending response body .. %v\n", err)
-	} else {
-		w.Write(responseText)
-	}
-
 	fmt.Printf("Dumping rquest data in output file ...\n")
 	//------- logging code ------//
 
@@ -161,8 +111,8 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(&logBuff, "\n%v\n", string(bodyStream))
 
 	} else {
-		fmt.Printf("Error occured while sending response body .. %v\n", err)
-		ErrorLogger.Printf("Error occured while sending response body .. \n%v", err)
+		fmt.Printf("Error occured while reading request body .. %v\n", err)
+		ErrorLogger.Printf("Error occured while reading request body .. \n%v", err)
 	}
 
 	fmt.Fprintf(&logBuff, "---------------End----------------\n")
@@ -170,6 +120,65 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 
 	if verboseFlag {
 		fmt.Println(logBuff.String())
+	}
+
+	key := req.Method + "|" + strings.Trim(req.RequestURI, "/")
+	response := reqRespMap[key]
+
+	if response == (HeaderAndBody{}) {
+		response = reqRespMap["default|default"]
+	}
+
+	fmt.Printf("Processing Request ...\n")
+	InfoLogger.Printf("Processing Request ...\n")
+
+	fmt.Printf("Sleeping for %v seconds ...\n", response.Delay)
+	InfoLogger.Printf("Sleeping for %v seconds ...\n", response.Delay)
+	time.Sleep(time.Duration(response.Delay) * time.Second)
+
+	// -- Process Response Header -- //
+
+	fmt.Printf("Writing Headers ... \n")
+	InfoLogger.Printf("Writing Headers ... \n")
+
+	responseText, err := ioutil.ReadFile(response.Header)
+
+	if err != nil {
+		fmt.Printf("Error occured while sending response header .. : %v\n", err)
+		ErrorLogger.Printf("Error occured while sending response header .. %v\n", err)
+	} else if strings.Trim(string(responseText), " ") != "" {
+
+		headers := strings.Split(string(responseText), "\n")
+
+		for _, line := range headers {
+
+			keyValue := strings.Split(line, ":")
+			_key := strings.Trim(keyValue[0], " ")
+			_value := strings.Trim(keyValue[1], " ")
+			w.Header().Add(_key, _value)
+		}
+
+		fmt.Printf("Writing Response Headers ... \n%v\n", string(responseText))
+		InfoLogger.Printf("Writing Response Headers ... \n%v\n", string(responseText))
+
+	}
+
+	// -- Write HTTP Response Code -- //
+	fmt.Printf("Writing status code ... \n")
+	InfoLogger.Printf("Writing status code ... \n")
+	w.WriteHeader(response.HttpCode)
+
+	// -- Process Response Body -- //
+	fmt.Printf("Writing response body ... \n")
+	responseText, err = ioutil.ReadFile(response.Body)
+
+	if err != nil {
+		fmt.Printf("Error occured while sending response body .. %v\n", err)
+		ErrorLogger.Printf("Error occured while sending response body .. %v\n", err)
+	} else {
+		w.Write(responseText)
+		fmt.Printf("Writing Response Body ... \n%v\n", string(responseText))
+		InfoLogger.Printf("Writing Response Body ... \n%v\n", string(responseText))
 	}
 
 	fmt.Printf("waiting for next request ...\n")
