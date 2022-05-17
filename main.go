@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -14,8 +15,8 @@ import (
 )
 
 var (
-	ip, port, configFile, outputFile string
-	verboseFlag                      bool
+	ip, port, certFile, keyFile, configFile, outputFile string
+	httpsFlag, verboseFlag                              bool
 
 	WarningLogger *log.Logger
 	InfoLogger    *log.Logger
@@ -65,7 +66,21 @@ func initializeAndStartListening() {
 	fmt.Println("listing on " + ip + ":" + port + " ...")
 	InfoLogger.Println("listing on " + ip + ":" + port + " ...")
 
-	http.ListenAndServe(ip+":"+port, nil)
+	if !httpsFlag {
+		err := http.ListenAndServe(ip+":"+port, nil)
+		if err != nil {
+			fmt.Printf("Error in ListenAndServe: %v\n", err)
+			ErrorLogger.Printf("Error in ListenAndServe: %v\n", err)
+			panic(-1)
+		}
+	} else {
+		err := http.ListenAndServeTLS(ip+":"+port, certFile, keyFile, nil)
+		if err != nil {
+			fmt.Printf("Error in ListenAndServeTLS: %v\n", err)
+			ErrorLogger.Printf("Error in ListenAndServeTLS: %v\n", err)
+			panic(-1)
+		}
+	}
 }
 
 func defaultHandler(w http.ResponseWriter, req *http.Request) {
@@ -204,6 +219,9 @@ func readArguments() bool {
 
 	_ip := flag.String("ip", "", "IP Address where applicaiton will bind, if none provided, it binds to all interface as default")
 	_port := flag.String("port", "8080", "TCP port wher eapplication will listen, default port is 8080")
+	_httpsFlag := flag.Bool("https", false, "whether server will be running in HTTPS mode or not")
+	_certFile := flag.String("cert", "", "TLS server certificate")
+	_keyFile := flag.String("key", "", "TLS client key")
 	_configFile := flag.String("config", "", "Mandatory input parameter which contains path, request and response to serve")
 	_outputFile := flag.String("output", "output.log", "output file where application log will be written. by default it will write in default directory")
 	_verboseFlag := flag.Bool("verbose", false, "by default verbose will be truned off")
@@ -212,6 +230,9 @@ func readArguments() bool {
 
 	ip = *_ip
 	port = *_port
+	httpsFlag = *_httpsFlag
+	certFile = *_certFile
+	keyFile = *_keyFile
 	configFile = *_configFile
 	outputFile = *_outputFile
 	verboseFlag = *_verboseFlag
@@ -231,9 +252,37 @@ func readArguments() bool {
 	WarningLogger = log.New(file, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
 	ErrorLogger = log.New(file, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
+	// Check whether server certificate and key file is passed in argument
+	if httpsFlag {
+
+		if certFile == "" || keyFile == "" {
+			fmt.Printf("Server Certificate and Client Key must be provided in case you want to run the service in HTTPS!\n")
+			ErrorLogger.Printf("Server Certificate and Client Key must be provided in case you want to run the service in HTTPS!\n")
+			fmt.Printf("Command Arguments::\n\tip\t\t:%v\n\tport\t:%v\n\thttps\t:%v\n\tcert\t:%v\n\tkey \t:%v\n\tconfigFile\t:%v\n\tOoutputFile\t:%v\n\tverboseFlag\t:%v\n", ip, port, httpsFlag, certFile, keyFile, configFile, outputFile, verboseFlag)
+			InfoLogger.Printf("Command Arguments::\n\tip\t\t:%v\n\tport\t:%v\n\thttps\t:%v\n\tcert\t:%v\n\tkey \t:%v\n\tconfigFile\t:%v\n\tOoutputFile\t:%v\n\tverboseFlag\t:%v\n", ip, port, httpsFlag, certFile, keyFile, configFile, outputFile, verboseFlag)
+			panic(-1)
+		}
+
+		// Check whether key file exists in file system
+		if _, err := os.Stat(certFile); errors.Is(err, os.ErrNotExist) {
+			fmt.Printf("Certificate file does not exist!\n")
+			ErrorLogger.Printf("Certificate file does not exist!\n")
+			panic(-1)
+		}
+
+		// Check whether key file exists in file system
+		if _, err := os.Stat(keyFile); errors.Is(err, os.ErrNotExist) {
+			fmt.Printf("Key file does not exist!\n")
+			ErrorLogger.Printf("Key file does not exist!\n")
+			panic(-1)
+		}
+	}
+
+	fmt.Printf("Command Arguments::\n\tip\t\t:%v\n\tport\t\t:%v\n\thttps\t:%v\n\ncert\t:%v\n\tkey\t\t:%v\n\tconfigFile\t:%v\n\tOoutputFile\t:%v\n\tverboseFlag\t:%v\n", ip, port, httpsFlag, certFile, keyFile, configFile, outputFile, verboseFlag)
+
 	if verboseFlag {
-		fmt.Printf("ip\t\t:%v\nport\t\t:%v\nconfigFile\t:%v\nOoutputFile\t:%v\nverboseFlag\t:%v\n", ip, port, configFile, outputFile, verboseFlag)
-		InfoLogger.Printf("Command Arguments::\n\tip\t\t:%v\n\tport\t\t:%v\n\tconfigFile\t:%v\n\tOoutputFile\t:%v\n\tverboseFlag\t:%v\n", ip, port, configFile, outputFile, verboseFlag)
+		fmt.Printf("Command Arguments::\n\tip\t\t:%v\n\tport\t:%v\n\thttps\t:%v\n\tcert\t:%v\n\tkey \t:%v\n\tconfigFile\t:%v\n\tOoutputFile\t:%v\n\tverboseFlag\t:%v\n", ip, port, httpsFlag, certFile, keyFile, configFile, outputFile, verboseFlag)
+		InfoLogger.Printf("Command Arguments::\n\tip\t\t:%v\n\tport\t:%v\n\thttps\t:%v\n\tcert\t:%v\n\tkey \t:%v\n\tconfigFile\t:%v\n\tOoutputFile\t:%v\n\tverboseFlag\t:%v\n", ip, port, httpsFlag, certFile, keyFile, configFile, outputFile, verboseFlag)
 	}
 
 	return argsLength > 0

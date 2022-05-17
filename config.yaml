@@ -15,6 +15,6 @@ POST|query-status:
   body: req-response/query-status-post-body.txt
 default|default:
   httpcode: 200
-  delay : 2
+  delay : 0
   header: req-response/default-header.txt 
   body: req-response/default-body.txt
